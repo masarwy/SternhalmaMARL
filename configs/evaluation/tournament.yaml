@@ -1,0 +1,13 @@
+env_config:
+  num_players: 2
+  board_diagonal: 5
+  max_actions: 128
+  render_mode: null
+
+tournament_config:
+  num_games: 20
+  max_steps_per_episode: 300
+  seed: 42
+  agents:
+    - random
+    - heuristic

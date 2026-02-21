@@ -1,162 +1,149 @@
 # SternhalmaMARL
 
-Multi-Agent Reinforcement Learning experiments on [SternhalmaEnv](https://github.com/masarwy/SternhalmaEnv) (Chinese Checkers) using RLlib.
+Multi-agent experimentation scaffold for [SternhalmaEnv](https://github.com/masarwy/SternhalmaEnv) (Chinese Checkers), with runnable baseline training/evaluation pipelines.
 
-## Overview
+## Current Status
 
-This project trains and benchmarks various MARL algorithms on the Sternhalma environment:
+This repository is now a working v0:
 
-- **Self-Play PPO**: Single shared policy trained via self-play  
-- **MAPPO**: Multi-Agent PPO with centralized critic  
-- **IPPO**: Independent PPO agents  
-- **Baseline agents**: Random and heuristic policies for comparison  
+- Mask-aware baseline agents (`random`, `heuristic`)
+- Self-play training runner (`training/self_play/train_ppo.py`)
+- Multi-agent training runner (`training/multiagent/train_mappo.py`)
+- Round-robin tournament + Elo (`scripts/run_tournament.py`)
+- Training metrics plotting from JSONL logs
+- Smoke tests for agents and training entrypoints
 
-## Features
-
-- RLlib integration with PettingZoo  
-- Action masking support for invalid moves  
-- Self-play training pipeline  
-- Multi-agent cooperative/competitive training  
-- Tournament evaluation system with Elo ratings  
-- Training visualization and metrics tracking  
+Note: the current training entrypoints are baseline-policy runners (not learned RLlib PPO/MAPPO yet).
 
 ## Installation
 
 ### Prerequisites
 
-- Python 3.8+  
-- [SternhalmaEnv](https://github.com/masarwy/SternhalmaEnv) installed or installable from Git  
+- Python 3.10+ (tested with 3.10)
+- A virtual environment (recommended)
 
 ### Setup
 
-Clone the repository and create a virtual environment:
+```bash
+git clone https://github.com/masarwy/SternhalmaMARL.git
+cd SternhalmaMARL
 
-    git clone https://github.com/masarwy/SternhalmaMARL.git
-    cd SternhalmaMARL
+python3 -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-    python3 -m venv .venv
-    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-Install dependencies:
+`requirements.txt` includes the Sternhalma environment dependency:
 
-    pip install -e .
-    pip install git+https://github.com/masarwy/SternhalmaEnv.git
+- `sternhalma-env @ git+https://github.com/masarwy/SternhalmaEnv.git`
 
 ## Quick Start
 
-### Train Self-Play PPO
+### 1) Run self-play training
 
-    python training/self_play/train_ppo.py --config configs/training/ppo_self_play.yaml
+```bash
+python training/self_play/train_ppo.py \
+  --config configs/training/ppo_self_play.yaml \
+  --output-dir experiments/ppo_self_play
+```
 
-### Run Tournament Evaluation
+### 2) Run multi-agent training
 
-    python scripts/run_tournament.py --agents random heuristic ppo_checkpoint
+```bash
+python training/multiagent/train_mappo.py \
+  --config configs/training/mappo.yaml \
+  --output-dir experiments/mappo
+```
 
-### Visualize Training Results
+### 3) Run tournament evaluation
 
-    python evaluation/visualizations/plot_training.py --experiment experiments/logs/ppo_self_play
+```bash
+python scripts/run_tournament.py \
+  --config configs/evaluation/tournament.yaml \
+  --agents random heuristic \
+  --num_games 20 \
+  --output experiments/results/tournament.json
+```
 
-## Configuration
+### 4) Plot training metrics
 
-Training hyperparameters are defined in YAML files under `configs/training/`:
+```bash
+python evaluation/visualizations/plot_training.py \
+  --experiment experiments/ppo_self_play/logs
+```
 
-- `ppo_self_play.yaml`: Self-play PPO configuration  
-- `mappo.yaml`: Multi-Agent PPO configuration  
+## Project Layout
 
-Example config structure:
+- `agents/baselines/`: baseline policies (`RandomAgent`, `HeuristicAgent`)
+- `training/`: training entrypoints + shared env/episode utilities
+- `evaluation/metrics/`: Elo rating implementation
+- `evaluation/visualizations/`: plotting utilities for JSONL training logs
+- `scripts/`: tournament and benchmark runners
+- `configs/`: YAML configs for training/evaluation
+- `tests/`: smoke tests
 
-    env_config:
-      num_players: 2
-      board_diagonal: 5
-      max_actions: 512
+## Configs
 
-    training_config:
-      num_workers: 4
-      train_batch_size: 4000
-      sgd_minibatch_size: 128
-      num_sgd_iter: 10
-      lr: 5e-5
+Training configs live under `configs/training/`:
 
-## Algorithms
+- `ppo_self_play.yaml`
+- `mappo.yaml`
 
-### Self-Play PPO
+Tournament config lives under `configs/evaluation/`:
 
-Single shared policy plays against itself. Best for symmetric games like Sternhalma.
+- `tournament.yaml`
 
-    python training/self_play/train_ppo.py
+Example structure:
 
-### MAPPO (Multi-Agent PPO)
+```yaml
+env_config:
+  num_players: 2
+  board_diagonal: 5
+  max_actions: 128
+  render_mode: null
 
-Centralized critic with decentralized actors. Good for cooperative or mixed scenarios.
+training_config:
+  num_episodes: 40
+  max_steps_per_episode: 300
+  checkpoint_every: 10
+  seed: 42
+```
 
-    python training/multiagent/train_mappo.py
+## Outputs
 
-### Baseline Agents
+Training runs write:
 
-- **Random Agent**: Uniformly samples from valid moves.  
-- **Heuristic Agent**: Greedy policy moving pieces toward target home.  
+- `logs/metrics.jsonl`: per-episode metrics
+- `checkpoints/latest.json`: latest checkpoint metadata
+- `summary.json`: run-level aggregate summary
 
-These are implemented under `agents/baselines/`.
+Tournament runs write:
 
-## Evaluation
-
-### Tournament Mode
-
-Run round-robin tournament between trained agents:
-
-    python scripts/run_tournament.py \
-      --agents random heuristic ppo_100k ppo_500k mappo_100k \
-      --num_games 50 \
-      --output experiments/results/tournament_2026_02_21.json
-
-### Metrics
-
-- Elo rating  
-- Win rate  
-- Average episode length  
-- Convergence curves  
+- `ratings` (Elo per agent)
+- pairwise match statistics
+- timestamp and run metadata
 
 ## Development
 
-### Run Tests
+Run tests:
 
-    pytest tests/ -v
-
-### Format Code
-
-    black .
-    isort .
-
-### Type Checking
-
-    mypy agents/ training/ evaluation/
-
-## Experiments & Results
-
-Training logs and checkpoints are saved to `experiments/`:
-
-- `checkpoints/`: Model weights  
-- `logs/`: TensorBoard logs, CSV metrics  
-- `results/`: Tournament JSON, Elo rankings, plots  
-
-View TensorBoard:
-
-    tensorboard --logdir experiments/logs
+```bash
+pytest -q
+```
 
 ## Roadmap
 
-- [x] Project scaffolding  
-- [ ] Self-play PPO implementation  
-- [ ] MAPPO implementation  
-- [ ] Baseline agents (random, heuristic)  
-- [ ] Tournament evaluation system  
-- [ ] Elo rating calculations  
-- [ ] Training visualization dashboard  
-- [ ] Hyperparameter tuning experiments  
-- [ ] Scaling experiments (num_players, board_diagonal)  
-- [ ] Curriculum learning (progressively harder opponents)  
+- [x] Project scaffolding
+- [x] Baseline agents (random, heuristic)
+- [x] Tournament evaluation with Elo
+- [x] Training visualization from JSONL metrics
+- [ ] RLlib-backed self-play PPO training
+- [ ] RLlib-backed MAPPO/IPPO training
+- [ ] Hyperparameter sweeps
+- [ ] Scaling experiments (`num_players`, `board_diagonal`)
+- [ ] Curriculum learning
 
 ## License
 
-MIT License – see `LICENSE`.
-
+MIT License. See `LICENSE`.

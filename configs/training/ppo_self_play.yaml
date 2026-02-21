@@ -1,0 +1,15 @@
+env_config:
+  num_players: 2
+  board_diagonal: 5
+  max_actions: 128
+  render_mode: null
+
+training_config:
+  num_episodes: 40
+  max_steps_per_episode: 300
+  checkpoint_every: 10
+  seed: 42
+
+output:
+  root_dir: experiments
+  run_name: ppo_self_play

@@ -1,0 +1,18 @@
+env_config:
+  num_players: 2
+  board_diagonal: 5
+  max_actions: 128
+  render_mode: null
+
+training_config:
+  num_episodes: 40
+  max_steps_per_episode: 300
+  checkpoint_every: 10
+  seed: 7
+  agent_types:
+    - heuristic
+    - random
+
+output:
+  root_dir: experiments
+  run_name: mappo

@@ -1,0 +1,9 @@
+numpy>=1.26,<2.0
+PyYAML>=6.0
+pettingzoo>=1.24,<2.0
+gymnasium>=0.29,<1.0
+matplotlib>=3.8
+pytest>=8.0
+
+# External Sternhalma environment
+sternhalma-env @ git+https://github.com/masarwy/SternhalmaEnv.git
