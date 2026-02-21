@@ -2,16 +2,35 @@ env_config:
   num_players: 2
   board_diagonal: 5
   max_actions: 128
+  max_agent_steps: 3000
+  reward_mode: potential_shaped
   render_mode: null
 
 training_config:
-  num_episodes: 40
-  max_steps_per_episode: 300
-  checkpoint_every: 10
+  num_iterations: 20
+  checkpoint_every: 5
   seed: 7
-  agent_types:
-    - heuristic
-    - random
+  mode: mappo
+  stop_reward: null
+
+rllib_config:
+  framework: torch
+  use_new_api_stack: true
+  num_gpus: 0.0
+  num_env_runners: 0
+  num_envs_per_env_runner: 1
+  rollout_fragment_length: 200
+  batch_mode: complete_episodes
+  train_batch_size: 2000
+  minibatch_size: 256
+  num_epochs: 5
+  lr: 5e-5
+  gamma: 0.99
+  lambda: 0.95
+
+ray_config:
+  local_mode: false
+  log_to_driver: false
 
 output:
   root_dir: experiments

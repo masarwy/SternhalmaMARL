@@ -1,19 +1,21 @@
 # SternhalmaMARL
 
-Multi-agent experimentation scaffold for [SternhalmaEnv](https://github.com/masarwy/SternhalmaEnv) (Chinese Checkers), with runnable baseline training/evaluation pipelines.
+Multi-agent experimentation scaffold for [SternhalmaEnv](https://github.com/masarwy/SternhalmaEnv) (Chinese Checkers), with Torch RLlib training and evaluation pipelines.
 
 ## Current Status
 
 This repository is now a working v0:
 
 - Mask-aware baseline agents (`random`, `heuristic`)
-- Self-play training runner (`training/self_play/train_ppo.py`)
-- Multi-agent training runner (`training/multiagent/train_mappo.py`)
+- RLlib Torch self-play PPO (`training/self_play/train_ppo.py`)
+- RLlib Torch multi-agent PPO with MAPPO/IPPO modes (`training/multiagent/train_mappo.py`)
 - Round-robin tournament + Elo (`scripts/run_tournament.py`)
 - Training metrics plotting from JSONL logs
 - Smoke tests for agents and training entrypoints
 
-Note: the current training entrypoints are baseline-policy runners (not learned RLlib PPO/MAPPO yet).
+Notes:
+- `MAPPO` mode here means shared-policy multi-agent PPO (MAPPO-style setup).
+- `IPPO` mode means independent per-agent policies.
 
 ## Installation
 
@@ -53,6 +55,7 @@ python training/self_play/train_ppo.py \
 ```bash
 python training/multiagent/train_mappo.py \
   --config configs/training/mappo.yaml \
+  --mode ippo \
   --output-dir experiments/mappo
 ```
 
@@ -71,6 +74,30 @@ python scripts/run_tournament.py \
 ```bash
 python evaluation/visualizations/plot_training.py \
   --experiment experiments/ppo_self_play/logs
+```
+
+### 5) Watch a trained PPO policy play
+
+```bash
+python scripts/watch_self_play.py \
+  --checkpoint-dir experiments/ppo_self_play/checkpoints \
+  --episodes 1 \
+  --render-mode human
+```
+
+Terminal-only render:
+
+```bash
+python scripts/watch_self_play.py \
+  --checkpoint-dir experiments/ppo_self_play/checkpoints \
+  --episodes 1 \
+  --render-mode ansi
+```
+
+If Ray fails to start for playback, run:
+
+```bash
+ray stop
 ```
 
 ## Project Layout
@@ -101,21 +128,45 @@ env_config:
   num_players: 2
   board_diagonal: 5
   max_actions: 128
+  max_agent_steps: 3000
+  reward_mode: potential_shaped
+  reward_scale: 0.01
+  reward_clip_abs: 5.0
   render_mode: null
 
 training_config:
-  num_episodes: 40
-  max_steps_per_episode: 300
+  num_iterations: 100
   checkpoint_every: 10
   seed: 42
+  stop_reward: null
+
+rllib_config:
+  framework: torch
+  use_new_api_stack: true
+  num_gpus: 0.0
+  num_env_runners: 2
+  rollout_fragment_length: 400
+  train_batch_size: 8000
+  minibatch_size: 512
+  num_epochs: 5
+  lr: 1e-5
+  entropy_coeff: 0.003
+  gamma: 0.99
+  lambda: 0.95
+
+ray_config:
+  local_mode: false
+  log_to_driver: false
 ```
 
 ## Outputs
 
 Training runs write:
 
-- `logs/metrics.jsonl`: per-episode metrics
-- `checkpoints/latest.json`: latest checkpoint metadata
+- `logs/metrics.jsonl`: per-iteration RLlib metrics
+- `checkpoints/`: RLlib checkpoint directory (model + optimizer + env runner state)
+- `checkpoints/iteration_*.json`: per-checkpoint metadata snapshots
+- `checkpoints/latest.json`: latest checkpoint metadata pointer
 - `summary.json`: run-level aggregate summary
 
 Tournament runs write:
@@ -129,7 +180,7 @@ Tournament runs write:
 Run tests:
 
 ```bash
-pytest -q
+.venv/bin/pytest -q
 ```
 
 ## Roadmap
@@ -138,8 +189,8 @@ pytest -q
 - [x] Baseline agents (random, heuristic)
 - [x] Tournament evaluation with Elo
 - [x] Training visualization from JSONL metrics
-- [ ] RLlib-backed self-play PPO training
-- [ ] RLlib-backed MAPPO/IPPO training
+- [x] RLlib-backed self-play PPO training
+- [x] RLlib-backed MAPPO/IPPO training
 - [ ] Hyperparameter sweeps
 - [ ] Scaling experiments (`num_players`, `board_diagonal`)
 - [ ] Curriculum learning

@@ -9,6 +9,8 @@ from typing import Any, Callable
 
 import numpy as np
 
+from training.env_wrappers import EpisodeStepLimitWrapper, RewardTransformWrapper
+
 try:
     import yaml
 except ImportError:  # pragma: no cover - exercised through CLI only
@@ -133,16 +135,36 @@ def load_yaml(path: Path) -> dict[str, Any]:
     return data
 
 
+def _to_jsonable(value: Any) -> Any:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, dict):
+        return {str(key): _to_jsonable(val) for key, val in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_to_jsonable(item) for item in value]
+    try:
+        json.dumps(value)
+        return value
+    except TypeError:
+        return str(value)
+
+
 def save_json(path: Path, payload: dict[str, Any]) -> None:
     ensure_dir(path.parent)
     with path.open("w", encoding="utf-8") as handle:
-        json.dump(payload, handle, indent=2, sort_keys=True)
+        json.dump(_to_jsonable(payload), handle, indent=2, sort_keys=True)
 
 
 def append_jsonl(path: Path, payload: dict[str, Any]) -> None:
     ensure_dir(path.parent)
     with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(payload, sort_keys=True))
+        handle.write(json.dumps(_to_jsonable(payload), sort_keys=True))
         handle.write("\n")
 
 
@@ -154,10 +176,23 @@ def make_env(env_config: dict[str, Any]):
         )
     config = dict(env_config)
     max_actions = int(config.pop("max_actions", 256))
+    max_agent_steps = config.pop("max_agent_steps", None)
+    reward_scale = float(config.pop("reward_scale", 1.0))
+    reward_clip_abs_raw = config.pop("reward_clip_abs", None)
+    reward_clip_abs = None if reward_clip_abs_raw is None else float(reward_clip_abs_raw)
     config.setdefault("num_players", 2)
     config.setdefault("board_diagonal", 5)
     config.setdefault("render_mode", None)
-    return sternhalma_v0.discrete_action_env(max_actions=max_actions, **config)
+    env = sternhalma_v0.discrete_action_env(max_actions=max_actions, **config)
+    if reward_scale != 1.0 or reward_clip_abs is not None:
+        env = RewardTransformWrapper(
+            env,
+            reward_scale=reward_scale,
+            reward_clip_abs=reward_clip_abs,
+        )
+    if max_agent_steps is not None:
+        env = EpisodeStepLimitWrapper(env, max_agent_steps=int(max_agent_steps))
+    return env
 
 
 def run_aec_episode(

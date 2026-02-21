@@ -4,6 +4,8 @@ pettingzoo>=1.24,<2.0
 gymnasium>=0.29,<1.0
 matplotlib>=3.8
 pytest>=8.0
+ray[rllib]>=2.54,<3.0
+torch>=2.2
 
 # External Sternhalma environment
 sternhalma-env @ git+https://github.com/masarwy/SternhalmaEnv.git
