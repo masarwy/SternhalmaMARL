@@ -2,31 +2,45 @@ env_config:
   num_players: 2
   board_diagonal: 5
   max_actions: 128
-  max_agent_steps: 3000
+  max_agent_steps: 600        # was 3000 — shorter episodes, less advantage variance
   reward_mode: potential_shaped
   render_mode: null
+  # No reward_scale here: IPPO/MAPPO trains with unscaled rewards so the
+  # terminal ±10 stays dominant.  Add reward_scale: 0.1 if training diverges.
 
 training_config:
-  num_iterations: 20
-  checkpoint_every: 5
+  num_iterations: 300
+  checkpoint_every: 25
   seed: 7
-  mode: mappo
+  mode: ippo                  # was mappo — IPPO avoids shared-policy non-stationarity
+                               # Use mappo only after IPPO converges as an ablation.
   stop_reward: null
 
 rllib_config:
   framework: torch
   use_new_api_stack: true
   num_gpus: 0.0
-  num_env_runners: 0
-  num_envs_per_env_runner: 1
+  num_env_runners: 4           # was 0
+  num_envs_per_env_runner: 2
   rollout_fragment_length: 200
-  batch_mode: complete_episodes
-  train_batch_size: 2000
-  minibatch_size: 256
-  num_epochs: 5
-  lr: 5e-5
-  gamma: 0.99
+  batch_mode: truncate_episodes  # was complete_episodes
+  train_batch_size: 8000
+  minibatch_size: 512
+  num_epochs: 10               # was 5
+  lr: 3.0e-4                   # was 5e-5
+  lr_schedule:
+    - [0, 3.0e-4]
+    - [2000000, 1.0e-5]
+  entropy_coeff: 0.01
+  gamma: 0.99                  # MUST match env gamma (potential_shaped reward)
   lambda: 0.95
+  grad_clip: 0.5
+  vf_loss_coeff: 0.5
+  fcnet_hiddens:
+    - 512
+    - 512
+    - 256
+  fcnet_activation: relu
 
 ray_config:
   local_mode: false

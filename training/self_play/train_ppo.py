@@ -31,14 +31,14 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "num_players": 2,
         "board_diagonal": 5,
         "max_actions": 128,
-        "max_agent_steps": 3000,
+        "max_agent_steps": 600,       # shorter episodes reduce advantage variance
         "reward_mode": "potential_shaped",
-        "reward_scale": 0.01,
-        "reward_clip_abs": 5.0,
+        "reward_scale": 0.1,           # terminal ±10 → ±1.0; shaping ~0.1/step
+        "reward_clip_abs": 15.0,       # no longer crushes the terminal signal
     },
     "training_config": {
-        "num_iterations": 100,
-        "checkpoint_every": 10,
+        "num_iterations": 300,
+        "checkpoint_every": 25,
         "seed": 42,
         "stop_reward": None,
     },
@@ -46,17 +46,21 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "framework": "torch",
         "use_new_api_stack": True,
         "num_gpus": 0.0,
-        "num_env_runners": 2,
-        "num_envs_per_env_runner": 1,
-        "rollout_fragment_length": 400,
-        "batch_mode": "complete_episodes",
+        "num_env_runners": 4,
+        "num_envs_per_env_runner": 2,
+        "rollout_fragment_length": 200,
+        "batch_mode": "truncate_episodes",  # avoids batch starvation
         "train_batch_size": 8000,
         "minibatch_size": 512,
-        "num_epochs": 5,
-        "lr": 1e-5,
-        "entropy_coeff": 0.003,
-        "gamma": 0.99,
+        "num_epochs": 10,
+        "lr": 3e-4,                    # warmed-up LR; decays via lr_schedule
+        "entropy_coeff": 0.01,
+        "gamma": 0.99,                 # MUST match env gamma
         "lambda": 0.95,
+        "grad_clip": 0.5,
+        "vf_loss_coeff": 0.5,
+        "fcnet_hiddens": [512, 512, 256],
+        "fcnet_activation": "relu",
     },
     "ray_config": {
         "local_mode": False,

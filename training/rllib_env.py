@@ -24,12 +24,21 @@ def _extract_obs_payload(raw_obs: Any) -> dict[str, Any] | None:
 
 class SternhalmaRLlibObsWrapper(BaseWrapper):
     """
-    Convert nested/object observations into fixed numeric tensors:
+    Convert nested/object observations into a flat float32 feature vector
+    that RLlib's MLP backbone can consume directly.
 
-    {
-      "observations": float32 vector [flatten(board), current_player],
-      "action_mask": float32 vector
-    }
+    Output observation format::
+
+        {
+            "observations": float32 vector
+                            [flatten(board), current_player, distances_to_home...],
+            "action_mask":  float32 vector  (shape: max_actions,)
+        }
+
+    The ``distances_to_home`` features (per-piece hex distances normalised to
+    [0, 1]) come from the SternhalmaEnv fix that adds them to ``observe()``.
+    Concatenating them here means the MLP gets a compact spatial signal without
+    having to re-learn hex geometry from the raw board encoding.
     """
 
     def __init__(self, env: Any):
@@ -50,15 +59,30 @@ class SternhalmaRLlibObsWrapper(BaseWrapper):
             if not isinstance(board_space, spaces.Box):
                 raise ValueError("Expected board observation as Box space.")
 
-            feature_dim = int(np.prod(board_space.shape)) + 1
+            # Base feature dim: flattened board + current_player scalar.
+            base_dim = int(np.prod(board_space.shape)) + 1
+
+            # Extra dim: distances_to_home vector (added in SternhalmaEnv fix).
+            dist_dim = 0
+            if "distances_to_home" in obs_space.spaces:
+                dist_space = obs_space.spaces["distances_to_home"]
+                dist_dim = int(np.prod(dist_space.shape))
+
+            feature_dim = base_dim + dist_dim
+
+            # Use the widest safe bounds across board + distance features.
             board_low = float(np.min(board_space.low))
             board_high = float(np.max(board_space.high))
+            # distances_to_home is in [0, 1]; board low may be negative, so
+            # we keep the existing board_low as the global lower bound.
+            obs_low = board_low
+            obs_high = max(board_high, 1.0)
 
             self._observation_spaces[agent_id] = spaces.Dict(
                 {
                     "observations": spaces.Box(
-                        low=board_low,
-                        high=board_high,
+                        low=obs_low,
+                        high=obs_high,
                         shape=(feature_dim,),
                         dtype=np.float32,
                     ),
@@ -92,10 +116,24 @@ class SternhalmaRLlibObsWrapper(BaseWrapper):
         if payload is not None:
             board = np.asarray(payload.get("board"), dtype=np.float32).reshape(-1)
             current_player = float(payload.get("current_player", 0.0))
-            usable = min(board.size, feature_dim - 1)
-            if usable > 0:
-                features[:usable] = board[:usable]
-            features[-1] = current_player
+
+            # -- board features --
+            board_end = min(board.size, feature_dim - 1)
+            if board_end > 0:
+                features[:board_end] = board[:board_end]
+            # current_player goes right after the board
+            cp_idx = board_end
+            if cp_idx < feature_dim:
+                features[cp_idx] = current_player
+
+            # -- distances_to_home features (new in SternhalmaEnv fix) --
+            dist_raw = payload.get("distances_to_home")
+            if dist_raw is not None:
+                dist = np.asarray(dist_raw, dtype=np.float32).reshape(-1)
+                dist_start = cp_idx + 1
+                usable_dist = min(dist.size, feature_dim - dist_start)
+                if usable_dist > 0:
+                    features[dist_start: dist_start + usable_dist] = dist[:usable_dist]
 
         raw_mask = np.asarray(wrapped_obs.get("action_mask"), dtype=np.float32).reshape(-1)
         mask = np.zeros((mask_dim,), dtype=np.float32)

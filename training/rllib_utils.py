@@ -188,18 +188,35 @@ def build_ppo_config(
     )
 
     training_kwargs: dict[str, Any] = {
-        "lr": float(rllib_cfg.get("lr", train_cfg.get("lr", 5e-5))),
+        "lr": float(rllib_cfg.get("lr", train_cfg.get("lr", 3e-4))),
         "gamma": float(rllib_cfg.get("gamma", train_cfg.get("gamma", 0.99))),
         "lambda_": float(rllib_cfg.get("lambda", train_cfg.get("lambda", 0.95))),
         "clip_param": float(rllib_cfg.get("clip_param", train_cfg.get("clip_param", 0.2))),
-        "vf_loss_coeff": float(rllib_cfg.get("vf_loss_coeff", train_cfg.get("vf_loss_coeff", 1.0))),
-        "entropy_coeff": float(rllib_cfg.get("entropy_coeff", train_cfg.get("entropy_coeff", 0.0))),
+        # Default vf_loss_coeff reduced to 0.5: the value-function loss can
+        # dominate early training when rewards are sparse; halving its weight
+        # keeps the policy gradient signal from being swamped.
+        "vf_loss_coeff": float(rllib_cfg.get("vf_loss_coeff", train_cfg.get("vf_loss_coeff", 0.5))),
+        # Entropy coefficient default raised to 0.01 to encourage exploration
+        # during the early stages when the reward signal is near-zero.
+        "entropy_coeff": float(rllib_cfg.get("entropy_coeff", train_cfg.get("entropy_coeff", 0.01))),
         "train_batch_size": train_batch_size,
         "minibatch_size": minibatch_size,
         "num_epochs": num_epochs,
+        # Gradient clipping is on by default to prevent exploding gradients
+        # on the long-horizon episodes that Sternhalma can produce.
+        "grad_clip": float(
+            rllib_cfg.get("grad_clip", train_cfg.get("grad_clip", 0.5))
+        ),
     }
-    if "grad_clip" in rllib_cfg or "grad_clip" in train_cfg:
-        training_kwargs["grad_clip"] = float(rllib_cfg.get("grad_clip", train_cfg.get("grad_clip")))
+    # Optional learning-rate schedule: list of [timestep, lr] pairs.
+    lr_schedule_raw = rllib_cfg.get("lr_schedule", train_cfg.get("lr_schedule"))
+    if lr_schedule_raw is not None:
+        # Normalise to list-of-lists for RLlib.
+        lr_schedule = [
+            [int(entry[0]), float(entry[1])]
+            for entry in lr_schedule_raw
+        ]
+        training_kwargs["lr_schedule"] = lr_schedule
     config = config.training(**training_kwargs)
     return config
 

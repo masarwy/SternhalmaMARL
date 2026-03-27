@@ -2,15 +2,16 @@ env_config:
   num_players: 2
   board_diagonal: 5
   max_actions: 128
-  max_agent_steps: 3000
+  max_agent_steps: 600        # was 3000 — shorter episodes reduce advantage noise
+                               # and allow many more update cycles per wall-clock hour
   reward_mode: potential_shaped
-  reward_scale: 0.01
-  reward_clip_abs: 5.0
+  reward_scale: 0.1            # was 0.01 — terminal ±10 → ±1.0, shaping ~0.1 per step
+  reward_clip_abs: 15.0        # was 5.0 — no longer crushes the terminal signal
   render_mode: null
 
 training_config:
-  num_iterations: 100
-  checkpoint_every: 10
+  num_iterations: 300          # more iterations needed to see convergence
+  checkpoint_every: 25
   seed: 42
   stop_reward: null
 
@@ -18,17 +19,28 @@ rllib_config:
   framework: torch
   use_new_api_stack: true
   num_gpus: 0.0
-  num_env_runners: 2
-  num_envs_per_env_runner: 1
-  rollout_fragment_length: 400
-  batch_mode: complete_episodes
+  num_env_runners: 4           # was 2 — more parallel rollouts → faster batch fill
+  num_envs_per_env_runner: 2
+  rollout_fragment_length: 200
+  batch_mode: truncate_episodes  # was complete_episodes — prevents batch starvation
   train_batch_size: 8000
   minibatch_size: 512
-  num_epochs: 5
-  lr: 1e-5
-  entropy_coeff: 0.003
-  gamma: 0.99
+  num_epochs: 10               # was 5 — more SGD passes per batch
+  lr: 3.0e-4                   # was 1e-5 — far too small for early training
+  lr_schedule:                 # cosine-style decay: start 3e-4, end 1e-5
+    - [0, 3.0e-4]
+    - [2000000, 1.0e-5]
+  entropy_coeff: 0.01          # was 0.003 — encourage more exploration early on
+  gamma: 0.99                  # MUST match env gamma if using potential_shaped reward
   lambda: 0.95
+  grad_clip: 0.5               # gradient clipping for training stability
+  vf_loss_coeff: 0.5
+  # Wider network: board is spatial, distance features need capacity to integrate
+  fcnet_hiddens:
+    - 512
+    - 512
+    - 256
+  fcnet_activation: relu       # relu > tanh for deeper nets
 
 ray_config:
   local_mode: false
