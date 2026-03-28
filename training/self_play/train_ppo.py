@@ -29,7 +29,7 @@ from training.utils import append_jsonl, ensure_dir, load_yaml, save_json
 DEFAULT_CONFIG: dict[str, Any] = {
     "env_config": {
         "num_players": 2,
-        "board_diagonal": 5,
+        "board_diagonal": 7,
         "max_actions": 128,
         "max_agent_steps": 600,       # shorter episodes reduce advantage variance
         "reward_mode": "potential_shaped",

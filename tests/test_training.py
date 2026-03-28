@@ -24,7 +24,7 @@ def test_self_play_training_smoke(tmp_path: Path) -> None:
     config = {
         "env_config": {
             "num_players": 2,
-            "board_diagonal": 5,
+            "board_diagonal": 7,
             "max_actions": 64,
             "max_agent_steps": 200,
             "reward_mode": "potential_shaped",
@@ -65,7 +65,7 @@ def test_mappo_training_smoke(tmp_path: Path) -> None:
     config = {
         "env_config": {
             "num_players": 2,
-            "board_diagonal": 5,
+            "board_diagonal": 7,
             "max_actions": 64,
             "max_agent_steps": 200,
             "reward_mode": "potential_shaped",

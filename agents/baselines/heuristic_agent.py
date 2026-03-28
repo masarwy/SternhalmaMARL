@@ -65,10 +65,12 @@ class HeuristicAgent(RandomAgent):
         for idx, move in enumerate(valid_moves):
             if mask is not None and (idx >= mask.size or not mask[idx]):
                 continue
-            if not (isinstance(move, (list, tuple)) and len(move) == 2):
+            # Accept single-step (len==2) and multi-hop (len>2) moves.
+            # Use move[0] as start and move[-1] as final landing position.
+            if not (isinstance(move, (list, tuple)) and len(move) >= 2):
                 continue
             start = np.asarray(move[0], dtype=float)
-            end = np.asarray(move[1], dtype=float)
+            end = np.asarray(move[-1], dtype=float)  # was move[1] — missed multi-hop end
             jump_length = float(np.linalg.norm(end - start))
 
             if goal is not None:

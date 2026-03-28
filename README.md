@@ -19,6 +19,36 @@ Notes:
 
 ---
 
+## ⚠️ Warning — MAPPO (shared policy) and self-play non-stationarity
+
+When all agents share a single policy network (MAPPO / `--mode mappo`), the
+training environment is **non-stationary by construction**: every gradient
+step changes the opponent's behaviour *and* your own behaviour simultaneously.
+This violates the stationary-environment assumption that underpins PPO's
+convergence guarantees.
+
+In practice this tends to produce **policy cycling** rather than monotonic
+improvement — the shared policy learns to beat its current self, which changes
+the distribution it is trained against, causing it to cycle through strategies
+rather than converge to a Nash equilibrium. [Bansal et al. (2018)](https://arxiv.org/abs/1710.03748)
+document this phenomenon in competitive self-play, and [Papoudakis et al.
+(2019)](https://arxiv.org/abs/1906.04737) survey the broader non-stationarity
+problem in MARL.
+
+**Use `--mode ippo` (default) for competitive training.**  
+IPPO gives each agent its own independent policy and value network, so the
+opponent is effectively a slowly-shifting environment from each agent's
+perspective — empirically more stable for competitive games. Use MAPPO only
+when you want to study the shared-representation effect or as an ablation.
+
+If you do use MAPPO and observe cycling:
+1. Reduce the learning rate (`lr: 1e-4` or lower).
+2. Increase `entropy_coeff` to prevent premature commitment.
+3. Add a **policy pool / fictitious self-play** — sample the opponent from
+   past policy snapshots instead of always training against the latest version.
+
+---
+
 ## Training Results — IPPO (2-player, 5×5 board)
 
 > **Run:** 150 iterations · Independent PPO (IPPO) · `board_diagonal=5` · `num_players=2`  

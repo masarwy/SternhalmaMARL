@@ -1,6 +1,6 @@
 env_config:
   num_players: 2
-  board_diagonal: 5
+  board_diagonal: 7
   max_actions: 128
   max_agent_steps: 600        # was 3000 — shorter episodes reduce advantage noise
                                # and allow many more update cycles per wall-clock hour

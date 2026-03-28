@@ -28,3 +28,20 @@ def test_heuristic_agent_prefers_longer_jump_without_board_payload() -> None:
     }
     action = agent.act(observation, info=info, action_space=DummyActionSpace())
     assert action == 1
+
+
+def test_heuristic_agent_scores_multi_hop_by_final_position() -> None:
+    """A 3-cell chain jump should score by move[0]->move[-1], not move[0]->move[1]."""
+    agent = HeuristicAgent(seed=999)
+    observation = {"action_mask": np.array([1, 1], dtype=np.int8)}
+    info = {
+        "valid_moves": [
+            # Single step: net displacement 1
+            [(6, 8), (6, 7)],
+            # Multi-hop: move[0]->(6,6)->(6,4): net displacement 4 via move[-1]
+            [(6, 8), (6, 6), (6, 4)],
+        ]
+    }
+    action = agent.act(observation, info=info, action_space=DummyActionSpace())
+    # Multi-hop has larger displacement and should win
+    assert action == 1, f"Expected multi-hop (action 1), got {action}"
