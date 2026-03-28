@@ -49,7 +49,7 @@ If you do use MAPPO and observe cycling:
 
 ---
 
-## Training Results — IPPO (2-player, 5×5 board)
+## Training Results — IPPO (2-player, board diagonal 5)
 
 > **Run:** 150 iterations · Independent PPO (IPPO) · `board_diagonal=5` · `num_players=2`  
 > **Hardware:** 2 vCPU, 8 GB RAM (CPU-only)  
