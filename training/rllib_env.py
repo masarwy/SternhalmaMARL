@@ -31,7 +31,7 @@ class SternhalmaRLlibObsWrapper(BaseWrapper):
 
         {
             "observations": float32 vector
-                            [flatten(board), current_player, distances_to_home...],
+                            [flatten(observation), current_player, distances_to_home...],
             "action_mask":  float32 vector  (shape: max_actions,)
         }
 
@@ -55,11 +55,11 @@ class SternhalmaRLlibObsWrapper(BaseWrapper):
             if not isinstance(obs_space, spaces.Dict):
                 raise ValueError("Expected nested Dict at observation['observations'].")
 
-            board_space = obs_space.spaces["board"]
+            board_space = obs_space.spaces["observation"]
             if not isinstance(board_space, spaces.Box):
                 raise ValueError("Expected board observation as Box space.")
 
-            # Base feature dim: flattened board + current_player scalar.
+            # Base feature dim: flattened observation + current_player scalar.
             base_dim = int(np.prod(board_space.shape)) + 1
 
             # Extra dim: distances_to_home vector (added in SternhalmaEnv fix).
@@ -70,7 +70,7 @@ class SternhalmaRLlibObsWrapper(BaseWrapper):
 
             feature_dim = base_dim + dist_dim
 
-            # Use the widest safe bounds across board + distance features.
+            # Use the widest safe bounds across observation + distance features.
             board_low = float(np.min(board_space.low))
             board_high = float(np.max(board_space.high))
             # distances_to_home is in [0, 1]; board low may be negative, so
@@ -114,14 +114,14 @@ class SternhalmaRLlibObsWrapper(BaseWrapper):
 
         features = np.zeros((feature_dim,), dtype=np.float32)
         if payload is not None:
-            board = np.asarray(payload.get("board"), dtype=np.float32).reshape(-1)
+            board = np.asarray(payload.get("observation"), dtype=np.float32).reshape(-1)
             current_player = float(payload.get("current_player", 0.0))
 
-            # -- board features --
+            # -- observation features --
             board_end = min(board.size, feature_dim - 1)
             if board_end > 0:
                 features[:board_end] = board[:board_end]
-            # current_player goes right after the board
+            # current_player goes right after the observation
             cp_idx = board_end
             if cp_idx < feature_dim:
                 features[cp_idx] = current_player
